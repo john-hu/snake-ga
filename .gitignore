@@ -1,3 +1,5 @@
 bayesOpt.py
 *.idea
 __pycache__
+env
+.vscode

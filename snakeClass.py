@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from DQN import DQNAgent
-from random import randint
+from random import randint, random
 from keras.utils import to_categorical
 
 #################################
@@ -18,7 +18,7 @@ def define_parameters():
     params['first_layer_size'] = 150   # neurons in the first layer
     params['second_layer_size'] = 150   # neurons in the second layer
     params['third_layer_size'] = 150    # neurons in the third layer
-    params['episodes'] = 150            
+    params['episodes'] = 150
     params['memory_size'] = 2500
     params['batch_size'] = 500
     params['weights_path'] = 'weights/weights.hdf5'
@@ -28,12 +28,14 @@ def define_parameters():
 
 
 class Game:
-    def __init__(self, game_width, game_height):
-        pygame.display.set_caption('SnakeGen')
+    def __init__(self, game_width, game_height, display):
+        self.display = display
         self.game_width = game_width
         self.game_height = game_height
-        self.gameDisplay = pygame.display.set_mode((game_width, game_height + 60))
-        self.bg = pygame.image.load("img/background.png")
+        if display:
+            self.gameDisplay = pygame.display.set_mode((game_width, game_height + 60))
+            pygame.display.set_caption('SnakeGen')
+            self.bg = pygame.image.load("img/background.png")
         self.crash = False
         self.player = Player(self)
         self.food = Food()
@@ -50,7 +52,8 @@ class Player(object):
         self.position.append([self.x, self.y])
         self.food = 1
         self.eaten = False
-        self.image = pygame.image.load('img/snakeBody.png')
+        if game.display:
+            self.image = pygame.image.load('img/snakeBody.png')
         self.x_change = 20
         self.y_change = 0
 
@@ -190,7 +193,8 @@ def plot_seaborn(array_counter, array_score):
 
 
 def run(display_option, speed, params):
-    pygame.init()
+    if display_option:
+        pygame.init()
     agent = DQNAgent(params)
     weights_filepath = params['weights_path']
     if params['load_weights']:
@@ -202,12 +206,8 @@ def run(display_option, speed, params):
     counter_plot = []
     record = 0
     while counter_games < params['episodes']:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
         # Initialize classes
-        game = Game(440, 440)
+        game = Game(440, 440, display_option)
         player1 = game.player
         food1 = game.food
 
@@ -217,6 +217,11 @@ def run(display_option, speed, params):
             display(player1, food1, game, record)
 
         while not game.crash:
+            if display_option:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        quit()
             if not params['train']:
                 agent.epsilon = 0
             else:
@@ -227,7 +232,7 @@ def run(display_option, speed, params):
             state_old = agent.get_state(game, player1, food1)
 
             # perform random actions based on agent.epsilon, or choose the action
-            if randint(0, 1) < agent.epsilon:
+            if random() < agent.epsilon:
                 final_move = to_categorical(randint(0, 2), num_classes=3)
             else:
                 # predict action based on the old state
@@ -264,11 +269,12 @@ def run(display_option, speed, params):
 
 if __name__ == '__main__':
     # Set options to activate or deactivate the game view, and its speed
-    pygame.font.init()
     parser = argparse.ArgumentParser()
     params = define_parameters()
-    parser.add_argument("--display", type=bool, default=True)
-    parser.add_argument("--speed", type=int, default=50)
+    parser.add_argument("--display", type=bool, default=False)
+    parser.add_argument("--speed", type=int, default=10)
     args = parser.parse_args()
     params['bayesian_optimization'] = False    # Use bayesOpt.py for Bayesian Optimization
+    if args.display:
+        pygame.font.init()
     run(args.display, args.speed, params)
