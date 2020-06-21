@@ -2,6 +2,7 @@ from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 import random
+import os
 import numpy as np
 import pandas as pd
 from operator import add
@@ -35,7 +36,7 @@ class DQNAgent(object):
         opt = Adam(self.learning_rate)
         model.compile(loss='mse', optimizer=opt)
 
-        if self.load_weights:
+        if self.load_weights and os.path.isfile(self.weights):
             model.load_weights(self.weights)
         return model
 

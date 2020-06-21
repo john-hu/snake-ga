@@ -24,6 +24,7 @@ def define_parameters():
     params['weights_path'] = 'weights/weights2.hdf5'
     params['load_weights'] = True
     params['train'] = True
+    params['verbose'] = False
     return params
 
 
@@ -183,7 +184,6 @@ def initialize_game(player, game, food, agent, batch_size):
     state_init2 = agent.get_state(game, player, food)
     reward1 = agent.set_reward(player, game.crash)
     agent.remember(state_init1, action, reward1, state_init2, game.crash)
-    agent.replay_new(agent.memory, batch_size)
 
 
 def plot_seaborn(array_counter, array_score):
@@ -203,10 +203,6 @@ def run(display_option, speed, params):
     if display_option:
         pygame.init()
     agent = DQNAgent(params)
-    weights_filepath = params['weights_path']
-    if params['load_weights']:
-        agent.model.load_weights(weights_filepath)
-        print("weights loaded")
 
     counter_games = 0
     score_plot = []
@@ -254,7 +250,8 @@ def run(display_option, speed, params):
 
             # set reward for the new state
             reward = agent.set_reward(player1, game.crash)
-            print(prediction, final_move, reward, step_count)
+            if params['verbose']:
+                print(prediction, final_move, reward, step_count)
 
             if params['train']:
                 # train short memory base on the new action and state
@@ -278,14 +275,28 @@ def run(display_option, speed, params):
     plot_seaborn(counter_plot, score_plot)
 
 
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 if __name__ == '__main__':
     # Set options to activate or deactivate the game view, and its speed
     parser = argparse.ArgumentParser()
     params = define_parameters()
-    parser.add_argument("--display", type=bool, default=False)
+    parser.add_argument("--display", type=str2bool, default=False)
+    parser.add_argument('--no-gpu', type=str2bool, default=False)
     parser.add_argument("--speed", type=int, default=10)
+    parser.add_argument('--verbose', type=str2bool, default=False)
     args = parser.parse_args()
     params['bayesian_optimization'] = False    # Use bayesOpt.py for Bayesian Optimization
+    params['verbose'] = args.verbose
+    if args.no_gpu:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     if args.display:
         pygame.font.init()
     run(args.display, args.speed, params)
