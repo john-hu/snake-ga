@@ -13,17 +13,17 @@ from keras.utils import to_categorical
 #################################
 def define_parameters():
     params = dict()
-    params['epsilon_decay_linear'] = 1/75
+    params['epsilon_decay_linear'] = 1/2
     params['learning_rate'] = 0.0005
     params['first_layer_size'] = 150   # neurons in the first layer
     params['second_layer_size'] = 150   # neurons in the second layer
     params['third_layer_size'] = 150    # neurons in the third layer
-    params['episodes'] = 150
+    params['episodes'] = 15
     params['memory_size'] = 2500
     params['batch_size'] = 500
-    params['weights_path'] = 'weights/weights.hdf5'
+    params['weights_path'] = 'weights/weights2.hdf5'
     params['load_weights'] = True
-    params['train'] = False
+    params['train'] = True
     return params
 
 
@@ -52,6 +52,7 @@ class Player(object):
         self.position.append([self.x, self.y])
         self.food = 1
         self.eaten = False
+        self.action = []
         if game.display:
             self.image = pygame.image.load('img/snakeBody.png')
         self.x_change = 20
@@ -145,16 +146,22 @@ def get_record(score, record):
 
 
 def display_ui(game, score, record):
-    myfont = pygame.font.SysFont('Segoe UI', 20)
-    myfont_bold = pygame.font.SysFont('Segoe UI', 20, True)
+    myfont = pygame.font.SysFont('Segoe UI', 16)
+    myfont_bold = pygame.font.SysFont('Segoe UI', 16, True)
     text_score = myfont.render('SCORE: ', True, (0, 0, 0))
     text_score_number = myfont.render(str(score), True, (0, 0, 0))
     text_highest = myfont.render('HIGHEST SCORE: ', True, (0, 0, 0))
     text_highest_number = myfont_bold.render(str(record), True, (0, 0, 0))
+    if len(game.player.action):
+        text_predict = myfont.render('ACTION: ', True, (0, 0, 0))
+        text_predict_number = myfont_bold.render(str(game.player.action), True, (0, 0, 0))
     game.gameDisplay.blit(text_score, (45, 440))
     game.gameDisplay.blit(text_score_number, (120, 440))
     game.gameDisplay.blit(text_highest, (190, 440))
     game.gameDisplay.blit(text_highest_number, (350, 440))
+    if len(game.player.action):
+        game.gameDisplay.blit(text_predict, (45, 460))
+        game.gameDisplay.blit(text_predict_number, (120, 460))
     game.gameDisplay.blit(game.bg, (10, 10))
 
 
@@ -215,7 +222,7 @@ def run(display_option, speed, params):
         initialize_game(player1, game, food1, agent, params['batch_size'])
         if display_option:
             display(player1, food1, game, record)
-
+        step_count = 0
         while not game.crash:
             if display_option:
                 for event in pygame.event.get():
@@ -232,7 +239,8 @@ def run(display_option, speed, params):
             state_old = agent.get_state(game, player1, food1)
 
             # perform random actions based on agent.epsilon, or choose the action
-            if random() < agent.epsilon:
+            if random() < agent.epsilon or random() < (step_count - 300) / 300:
+                prediction = [0, 0, 0]
                 final_move = to_categorical(randint(0, 2), num_classes=3)
             else:
                 # predict action based on the old state
@@ -241,10 +249,12 @@ def run(display_option, speed, params):
 
             # perform new move and get new state
             player1.do_move(final_move, player1.x, player1.y, game, food1, agent)
+            game.player.action = final_move
             state_new = agent.get_state(game, player1, food1)
 
             # set reward for the new state
             reward = agent.set_reward(player1, game.crash)
+            print(prediction, final_move, reward, step_count)
 
             if params['train']:
                 # train short memory base on the new action and state
@@ -256,10 +266,11 @@ def run(display_option, speed, params):
             if display_option:
                 display(player1, food1, game, record)
                 pygame.time.wait(speed)
+            step_count += 1
         if params['train']:
             agent.replay_new(agent.memory, params['batch_size'])
         counter_games += 1
-        print(f'Game {counter_games}      Score: {game.score}')
+        print(f'Game {counter_games}/{step_count}/{agent.epsilon}      Score: {game.score}')
         score_plot.append(game.score)
         counter_plot.append(counter_games)
     if params['train']:
