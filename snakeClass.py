@@ -1,6 +1,7 @@
 import os
 import pygame
 import argparse
+import json
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -219,6 +220,7 @@ def run(display_option, speed, params):
         if display_option:
             display(player1, food1, game, record)
         step_count = 0
+        raw_data = [] if params['raw_output'] is not None else None
         while not game.crash:
             if display_option:
                 for event in pygame.event.get():
@@ -250,6 +252,20 @@ def run(display_option, speed, params):
 
             # set reward for the new state
             reward = agent.set_reward(player1, game.crash)
+            if raw_data is not None:
+                raw_data.append({
+                    'head_x': player1.x,
+                    'head_y': player1.y,
+                    'food_x': food1.x_food,
+                    'food_y': food1.y_food,
+                    'snake_position': player1.position[:],
+                    'snake_x_change': player1.x_change,
+                    'snake_y_change': player1.y_change,
+                    'eaten': player1.eaten,
+                    'reward': reward,
+                    'crash': game.crash
+                })
+
             if params['verbose']:
                 print(prediction, final_move, reward, step_count)
 
@@ -268,6 +284,10 @@ def run(display_option, speed, params):
             agent.replay_new(agent.memory, params['batch_size'])
         counter_games += 1
         print(f'Game {counter_games}/{step_count}/{agent.epsilon}      Score: {game.score}')
+        if raw_data is not None:
+            fn_index = params['raw_output_index'] + counter_games
+            with open(os.path.join(params['raw_output'], f'{fn_index}.json'), 'w') as out:
+                json.dump(raw_data, out)
         score_plot.append(game.score)
         counter_plot.append(counter_games)
     if params['train']:
@@ -288,13 +308,22 @@ if __name__ == '__main__':
     # Set options to activate or deactivate the game view, and its speed
     parser = argparse.ArgumentParser()
     params = define_parameters()
-    parser.add_argument("--display", type=str2bool, default=False)
+    parser.add_argument('--display', type=str2bool, default=False)
     parser.add_argument('--no-gpu', type=str2bool, default=False)
-    parser.add_argument("--speed", type=int, default=10)
+    parser.add_argument('--speed', type=int, default=10)
     parser.add_argument('--verbose', type=str2bool, default=False)
+    parser.add_argument('--raw-output', type=str, default=None)
+    parser.add_argument('--raw-output-index', type=int, default=0)
+    parser.add_argument('--episodes', type=int, default=15)
+    parser.add_argument('--train', type=str2bool, default=True)
+
     args = parser.parse_args()
     params['bayesian_optimization'] = False    # Use bayesOpt.py for Bayesian Optimization
     params['verbose'] = args.verbose
+    params['raw_output'] = args.raw_output
+    params['raw_output_index'] = args.raw_output_index
+    params['train'] = args.train
+    params['episodes'] = args.episodes
     if args.no_gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
     if args.display:
