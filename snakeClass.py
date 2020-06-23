@@ -13,15 +13,15 @@ from keras.utils import to_categorical
 #################################
 def define_parameters():
     params = dict()
-    params['epsilon_decay_linear'] = 1/2
+    params['epsilon_decay_linear'] = 1 / 2
     params['learning_rate'] = 0.0005
     params['first_layer_size'] = 150   # neurons in the first layer
     params['second_layer_size'] = 150   # neurons in the second layer
     params['third_layer_size'] = 150    # neurons in the third layer
-    params['episodes'] = 15
+    params['episodes'] = 5
     params['memory_size'] = 2500
     params['batch_size'] = 500
-    params['weights_path'] = 'weights/weights2.hdf5'
+    params['weights_path'] = 'weights/weights_cnn.hdf5'
     params['load_weights'] = True
     params['train'] = True
     params['verbose'] = False
@@ -181,9 +181,13 @@ def initialize_game(player, game, food, agent, batch_size):
     state_init1 = agent.get_state(game, player, food)  # [0 0 0 0 0 0 0 0 0 1 0 0 0 1 0 0]
     action = [1, 0, 0]
     player.do_move(action, player.x, player.y, game, food, agent)
-    state_init2 = agent.get_state(game, player, food)
+    state_init2 = agent.get_state(game, player, food, state_init1)
+    action = [1, 0, 0]
+    player.do_move(action, player.x, player.y, game, food, agent)
+    state_init3 = agent.get_state(game, player, food, state_init2)
     reward1 = agent.set_reward(player, game.crash)
-    agent.remember(state_init1, action, reward1, state_init2, game.crash)
+    agent.remember(state_init2, action, reward1, state_init3, game.crash)
+    return state_init3
 
 
 def plot_seaborn(array_counter, array_score):
@@ -215,7 +219,7 @@ def run(display_option, speed, params):
         food1 = game.food
 
         # Perform first move
-        initialize_game(player1, game, food1, agent, params['batch_size'])
+        state_old = initialize_game(player1, game, food1, agent, params['batch_size'])
         if display_option:
             display(player1, food1, game, record)
         step_count = 0
@@ -225,14 +229,11 @@ def run(display_option, speed, params):
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         quit()
-            if not params['train']:
+            if not params['train'] or params['epsilon_decay_linear'] == 0:
                 agent.epsilon = 0
             else:
                 # agent.epsilon is set to give randomness to actions
                 agent.epsilon = 1 - (counter_games * params['epsilon_decay_linear'])
-
-            # get old state
-            state_old = agent.get_state(game, player1, food1)
 
             # perform random actions based on agent.epsilon, or choose the action
             if random() < agent.epsilon or random() < (step_count - 300) / 300:
@@ -240,13 +241,16 @@ def run(display_option, speed, params):
                 final_move = to_categorical(randint(0, 2), num_classes=3)
             else:
                 # predict action based on the old state
-                prediction = agent.model.predict(state_old.reshape((1, 11)))
+                prediction = agent.model.predict(np.array([state_old]))
                 final_move = to_categorical(np.argmax(prediction[0]), num_classes=3)
 
             # perform new move and get new state
             player1.do_move(final_move, player1.x, player1.y, game, food1, agent)
+            if player1.eaten:
+                print('eat one food after {} steps'.format(step_count))
+                step_count = 0
             game.player.action = final_move
-            state_new = agent.get_state(game, player1, food1)
+            state_new = agent.get_state(game, player1, food1, state_old)
 
             # set reward for the new state
             reward = agent.set_reward(player1, game.crash)
@@ -264,6 +268,8 @@ def run(display_option, speed, params):
                 display(player1, food1, game, record)
                 pygame.time.wait(speed)
             step_count += 1
+            state_old = state_new
+
         if params['train']:
             agent.replay_new(agent.memory, params['batch_size'])
         counter_games += 1
