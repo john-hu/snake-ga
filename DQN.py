@@ -39,25 +39,32 @@ class DQNAgent(object):
         # layer 7: walls of thrid image
         # layer 8: snake of thrid image
         # layer 9: food of thrid image
-        model.add(Conv2D(filters=150, kernel_size=(3, 3), padding='same', activation='relu', input_shape=(22, 22, 9)))
-        model.add(Conv2D(filters=150, kernel_size=(3, 3), padding='same'))
+        model.add(Conv2D(filters=512, kernel_size=(2, 2), padding='same', activation='relu', input_shape=(22, 22, 9)))
+        model.add(Conv2D(filters=512, kernel_size=(2, 2), padding='same'))
         model.add(BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Dropout(0.5))
-        model.add(Conv2D(filters=150, kernel_size=(4, 4), padding='same', activation='relu'))
-        model.add(Conv2D(filters=150, kernel_size=(4, 4), padding='same'))
+        model.add(Conv2D(filters=256, kernel_size=(2, 2), padding='same', activation='relu'))
+        model.add(Conv2D(filters=256, kernel_size=(2, 2), padding='same'))
         model.add(BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Dropout(0.5))
-        model.add(Conv2D(filters=150, kernel_size=(2, 2), padding='same', activation='relu'))
-        model.add(Conv2D(filters=150, kernel_size=(2, 2), padding='same'))
+        model.add(Conv2D(filters=128, kernel_size=(2, 2), padding='same', activation='sigmoid'))
+        model.add(Conv2D(filters=128, kernel_size=(2, 2), padding='same'))
+        model.add(BatchNormalization())
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        model.add(Dropout(0.5))
+        model.add(Conv2D(filters=64, kernel_size=(2, 2), padding='same', activation='sigmoid'))
+        model.add(Conv2D(filters=64, kernel_size=(2, 2), padding='same'))
         model.add(BatchNormalization())
         model.add(MaxPooling2D(pool_size=(2, 2)))
         model.add(Dropout(0.5))
         model.add(Flatten())
-        model.add(Dense(150, activation='relu'))
-        model.add(Dense(150, activation='relu'))
-        model.add(Dense(150, activation='relu'))
+        model.add(Dense(64, activation='sigmoid'))
+        model.add(Dense(128, activation='sigmoid'))
+        model.add(Dense(256, activation='sigmoid'))
+        model.add(Dense(128, activation='sigmoid'))
+        model.add(Dense(64, activation='sigmoid'))
         model.add(Dense(3, activation='softmax'))
         opt = Adam(self.learning_rate)
         model.compile(loss='mse', optimizer=opt)
@@ -119,10 +126,10 @@ class DQNAgent(object):
             target_f[0][np.argmax(action)] = target
             self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
 
-    def train_short_memory(self, state, action, reward, next_state, done):
+    def train_short_memory(self, state, action, reward, next_state, done, verbose=0):
         target = reward
         if not done:
             target = reward + self.gamma * np.amax(self.model.predict(np.array([next_state]))[0])
         target_f = self.model.predict(np.array([state]))
         target_f[0][np.argmax(action)] = target
-        self.model.fit(np.array([state]), target_f, epochs=1, verbose=0)
+        self.model.fit(np.array([state]), target_f, epochs=1, verbose=verbose)
