@@ -1,4 +1,5 @@
 import os
+import copy
 import pygame
 import argparse
 import json
@@ -22,7 +23,7 @@ def define_parameters():
     params['episodes'] = 15
     params['memory_size'] = 2500
     params['batch_size'] = 500
-    params['weights_path'] = 'weights/weights2.hdf5'
+    params['weights_path'] = 'weights/weights.hdf5'
     params['load_weights'] = True
     params['train'] = True
     params['verbose'] = False
@@ -242,9 +243,19 @@ def run(display_option, speed, params):
                 final_move = to_categorical(randint(0, 2), num_classes=3)
             else:
                 # predict action based on the old state
-                prediction = agent.model.predict(state_old.reshape((1, 11)))
-                final_move = to_categorical(np.argmax(prediction[0]), num_classes=3)
-
+                prediction = agent.model.predict(state_old.reshape((1, 11)))[0]
+                final_move = to_categorical(np.argmax(prediction), num_classes=3)
+            if raw_data is not None:
+                step_data = {
+                    'head_x': player1.x,
+                    'head_y': player1.y,
+                    'food_x': food1.x_food,
+                    'food_y': food1.y_food,
+                    'snake_position': copy.deepcopy(player1.position),
+                    'snake_x_change': player1.x_change,
+                    'snake_y_change': player1.y_change,
+                    'action': final_move.tolist()
+                }
             # perform new move and get new state
             player1.do_move(final_move, player1.x, player1.y, game, food1, agent)
             game.player.action = final_move
@@ -253,18 +264,19 @@ def run(display_option, speed, params):
             # set reward for the new state
             reward = agent.set_reward(player1, game.crash)
             if raw_data is not None:
-                raw_data.append({
+                step_data['eaten'] = player1.eaten
+                step_data['reward'] = reward
+                step_data['crash'] = game.crash
+                step_data['next_state'] = {
                     'head_x': player1.x,
                     'head_y': player1.y,
                     'food_x': food1.x_food,
                     'food_y': food1.y_food,
-                    'snake_position': player1.position[:],
+                    'snake_position': copy.deepcopy(player1.position),
                     'snake_x_change': player1.x_change,
                     'snake_y_change': player1.y_change,
-                    'eaten': player1.eaten,
-                    'reward': reward,
-                    'crash': game.crash
-                })
+                }
+                raw_data.append(step_data)
 
             if params['verbose']:
                 print(prediction, final_move, reward, step_count)
