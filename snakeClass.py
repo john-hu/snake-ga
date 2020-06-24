@@ -238,7 +238,7 @@ def run(display_option, speed, params):
             state_old = agent.get_state(game, player1, food1)
 
             # perform random actions based on agent.epsilon, or choose the action
-            if random() < agent.epsilon or random() < (step_count - 300) / 300:
+            if params['train'] and (random() < agent.epsilon or random() < (step_count - 300) / 300):
                 prediction = [0, 0, 0]
                 final_move = to_categorical(randint(0, 2), num_classes=3)
             else:
@@ -254,7 +254,7 @@ def run(display_option, speed, params):
                     'snake_position': copy.deepcopy(player1.position),
                     'snake_x_change': player1.x_change,
                     'snake_y_change': player1.y_change,
-                    'action': final_move.tolist()
+                    'action': prediction.tolist()
                 }
             # perform new move and get new state
             player1.do_move(final_move, player1.x, player1.y, game, food1, agent)
